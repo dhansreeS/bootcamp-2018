@@ -114,3 +114,98 @@ get_MeanMedianMinMax <-
 get_MeanMedianMinMax(gapminder,"lifeExp","continent","Asia")
 ```
 
+
+
+##Check if there are any records from 2002 in the dataset
+```{r}
+if(any(years==2002)){
+  print("2002 exists in the data set")
+} else {
+  print("2002 doesn't exist in the data set")
+}
+```
+##Check if there are any records from 2012 in the dataset
+```{r}
+if(is.element(2012,years)){
+  print("2012 exists in the data set")
+} else {
+  print("2012 doesn't exist in the data set")
+}
+```
+
+##Find countries whose mean life expectancy is lower than the overall mean
+```{r}
+mean_pop <- mean(gapminder$pop)
+
+for(i in unique(gapminder$country)){
+  pop_mean_country <- mean(gapminder$pop[gapminder$country==i])
+  if(pop_mean_country<mean_pop){
+    cou_mean_le <- mean(gapminder$lifeExp[gapminder$country==i])
+    print(paste0(i,"'s mean life expectancy is: ",cou_mean_le))
+  }
+}
+```
+
+
+##Segmenting life expectancy data by continent into <50, 50-70, >70
+```{r}
+for(i in conts){
+  mean_le <- mean(gapminder$lifeExp[gapminder$continent==i])
+  if(mean_le<50){
+    print(paste0("Mean Life Expectancy for ",i," is less than 50"))
+  } else if(mean_le<=70){
+    print(paste0("Mean Life Expectancy for ",i," is between 50 and 70"))
+  } else {
+    print(paste0("Mean Life Expectancy for ",i," is greater than 70"))
+  }
+}
+```
+
+
+##Function that returns name of columns and class of data in data frame
+```{r}
+get_ColumnClass <-
+  function(df) {
+    colname <- NA
+    colname <- colnames(df)
+    print("Column name: Class")
+    i <- colname[1]
+    for(i in colname){
+      classOfData <- class(df[[i]])
+      print(paste0(i,": ",classOfData))
+    }
+  }
+
+get_ColumnClass(gapminder)
+```
+
+
+##Function to print out mean, sd and optionally median of a vector
+```{r}
+get_meanSDMed <-
+  function(vec, bool=F){
+    print(paste0("Mean of vector: ",mean(vec)))
+    print(paste0("Standard Deviation of vector: ",sd(vec)))
+    if(bool){
+      print(paste0("Median of vector: ",median(vec)))
+    }
+  }
+
+get_meanSDMed(gapminder$pop)
+get_meanSDMed(gapminder$pop,T)
+```
+
+
+##Relationship between GDP per capita and Life Expectancy
+GDP per capita and life expectancy seem to be highly correlated. As life expectancy increases, so does the GDP per capita.
+```{r}
+logOfLifeExp <- log(gapminder$lifeExp)
+logOfGDP <- log(gapminder$gdpPercap)
+fit <- lm(logOfGDP ~ logOfLifeExp)
+plot(logOfLifeExp,logOfGDP,
+     main="Relationship between the natural logs of life expectancy and GDP per capita",
+     xlab="Log of life expectancy",
+     ylab="Log of GDP per capita")
+lines(logOfLifeExp,predict(fit), col="blue")
+```
+
