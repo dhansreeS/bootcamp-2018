@@ -1,0 +1,116 @@
+---
+title: "R Day 2"
+author: "Dhansree Suraj"
+date: "9/18/2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+##Reading the data
+```{r}
+here::here("data", "gapminder5.csv")
+
+gapminder <- read.csv(here::here("data", "gapminder5.csv"))
+
+str(gapminder)
+```
+
+## Converting factors to characters
+
+```{r}
+gapminder$country <- as.character(gapminder$country)
+gapminder$continent <- as.character(gapminder$continent)
+str(gapminder)
+```
+
+##Creating log variables for for loop
+```{r}
+obs <- c(1:nrow(gapminder))
+for (i in obs) {
+  gapminder[i,"log_gdpPercap"] <- log(gapminder[i,"gdpPercap"])
+  gapminder[i,"log_pop"] <- log(gapminder[i,"pop"])
+}
+head(gapminder)
+```
+
+##Finding life expectancy for each continent
+```{r}
+conts <- unique(gapminder$continent)
+
+
+for (i in conts) {
+  lifeExpt <- mean(gapminder$lifeExp[gapminder$continent==i])
+  print(paste0(i,": ",lifeExpt))
+}
+
+```
+
+##Life Expectancy gap over continents in time
+```{r}
+years <- unique(gapminder$year)
+
+for(i in conts) {
+  print(paste0("Continent: ",i))
+  for(j in years) {
+    stdLifExp <- sd(gapminder$lifeExp[gapminder$continent==i & gapminder$year==j])
+    print(paste0(j,": ",stdLifExp))
+  }
+}
+```
+
+##STD for life expectancy for each year between 1987 and 2002
+```{r}
+i <- 1987
+
+while(i<=2002){
+  sd_le <- sd(gapminder$lifeExp[gapminder$year==i])
+  print(paste0(i,": ",sd_le))
+  i <- i + 5
+}
+```
+
+
+##If else example
+```{r}
+set.seed(1)
+random_year <- sample(years,1)
+if(random_year > 1977){
+  print(random_year)
+} else {
+  print("Sorry, random year is less than 1977")
+}
+```
+
+##Mean population for years greater than or equal to 1987
+```{r}
+for (i in years){
+  if(i<1987){
+    print("Sorry, the year is less than 1987")
+  } else {
+    mean_pop <- mean(gapminder$pop[gapminder$year==i])
+    print(paste0(i,": ",mean_pop))
+  }
+}
+```
+
+
+##Function to mean, median, min, max for life expectancy for a continent
+```{r}
+get_MeanMedianMinMax <-
+  function(df, variable1,variable2,var2val) {
+    vals <- df[,variable1][df[,variable2]==var2val]
+    mean_val <- mean(vals)
+    median_val <- median(vals)
+    min_val <- min(vals)
+    max_val <- max(vals)
+    cat(variable2,": ",var2val,
+        "\nMean of ",variable1,": ",mean_val,
+        "\nMedian of ",variable1,": ",median_val,
+        "\nMin of ",variable1,": ",min_val,
+        "\nMax of ",variable1,": ",max_val)
+  }
+get_MeanMedianMinMax(gapminder,"lifeExp","continent","Asia")
+```
+
