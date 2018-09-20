@@ -1,0 +1,71 @@
+---
+title: "Final R Exercise"
+author: "Dhansree Suraj"
+date: "9/19/2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+##Loading data
+```{r}
+schools <- read.csv(here::here("data","nys_schools.csv"), stringsAsFactors = F)
+acs <- read.csv(here::here("data","nys_acs.csv"), stringsAsFactors = F)
+
+```
+
+##Exploring data
+```{r}
+str(schools)
+str(acs)
+
+summary(schools)
+summary(acs)
+```
+
+##Dealing with -99 values
+```{r}
+schools[schools==-99 | schools=="-99"] <- NA
+library(dplyr)
+```
+
+##Creating a categorical variable for poverty in counties
+County_per_poverty values below 0.1 (which is the 25th percentile) have been coded as "Low".
+County_per_poverty values above 0.15 (which is the 75th percentile) have been coded as "High".
+The remaining values have been coded as "Medium".
+```{r}
+summary(acs$county_per_poverty)
+mutate(acs, poverty_category=ifelse(county_per_poverty>=0.15,"High", 
+                                     ifelse(county_per_poverty<=0.1,"Low", "Medium")))
+
+
+acs$poverty_category[is.na(acs$poverty_category)] <- "Medium"
+unique(acs$poverty_category)
+```
+
+##Scaling scores for math and english
+```{r}
+schools <- (schools %>% 
+  group_by(year) %>% 
+  mutate(scaled_ela = scale(mean_ela_score), scaled_math = scale(mean_math_score)))
+
+```
+
+##Merging the datasets
+```{r}
+acs_schools <- acs %>% 
+  merge(schools, by.x=c("county_name","year"), by.y=c("county_name","year"), all.x=T, all.y=T)
+```
+
+##Creating Summary tables
+```{r}
+aggregate(cbind(total_enroll, per_free_lunch, per_reduced_lunch, county_per_poverty) ~ county_name, FUN=mean, na.action = na.omit, data=acs_schools)
+
+acs_schools %>% 
+  
+
+#aggregate(cbind(county_per_poverty, per_free_lunch, per_reduced_lunch, scaled_ela, scaled_math) ~ county_name, FUN=mean, na.action = na.omit, data=subset(acs_schools,order(county_per_poverty) %in% head(sort(order(acs_schools$county_per_poverty,na.last = NA)),n=5) | order(county_per_poverty) %in% tail(sort(order(acs_schools$county_per_poverty,na.last = NA)),n=5)))
+```
+

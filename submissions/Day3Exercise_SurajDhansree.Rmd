@@ -1,0 +1,113 @@
+---
+title: "R Day 3 (Energy)"
+author: "Dhansree Suraj"
+date: "9/19/2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+##Read data from data folder
+```{r}
+generation <- read.csv(here::here("data","generation.csv"), stringsAsFactors = FALSE)
+imports <- read.csv(here::here("data","imports.csv"), stringsAsFactors = FALSE)
+
+str(generation)
+str(imports)
+```
+
+##Recode datatime variables
+```{r}
+library(lubridate)
+generation$datetime <- lubridate::as_datetime(generation$datetime)
+imports$datetime <- lubridate::as_datetime(imports$datetime)
+head(generation$datetime)
+head(imports$datetime)
+```
+
+##Make datasets long (melt data)
+```{r}
+library(reshape2)
+long_gen <- melt(generation, id.vars = "datetime",
+                 variable.name="source", value.name="usage")
+
+head(long_gen)
+```
+
+##Merge generation and imports data sets
+```{r}
+merge_energy <- merge(generation,imports, id="datetime")
+head(merge_energy)
+```
+
+##Melt merge_energy data set
+```{r}
+long_merged_energy <- melt(merge_energy, id.vars = "datetime",
+                 variable.name="source", value.name="usage")
+
+head(long_merged_energy)
+```
+
+##Subsetting or selecting columns using dplyr
+```{r}
+library(dplyr)
+tmp <- select(merge_energy,contains("hydro"), ends_with("s"))
+str(tmp)
+```
+
+##Selecting observations using dplyr
+```{r}
+tmp <- filter(merge_energy, imports>9000 & natural_gas>9000)
+nrow(tmp)
+head(tmp)
+```
+
+##Adding new variables using dplyr
+```{r}
+tmp <- mutate(long_merged_energy,log_usage = log(usage))
+head(tmp)
+```
+
+##Summarizing variables
+```{r}
+summarise(long_merged_energy,total=sum(usage,na.rm=T))
+```
+
+##Using pipes
+```{r}
+merge_energy %>%
+  select(-datetime) %>%
+  mutate(total_usage = rowSums(.,na.rm=T)) %>%
+  summarize(total_usage = sum(total_usage,na.rm=T))
+
+head(merge_energy)
+
+rowS
+```
+
+##Piping example
+```{r}
+merge_energy %>% 
+  select(contains("hydro")) %>% 
+  mutate(total_hydro = rowSums(.,na.rm=T)) %>% 
+  summarize(mean_hydro = mean(total_hydro, na.rm=T))
+```
+
+##Using group by
+```{r}
+long_merged_energy %>% 
+  group_by(source) %>% 
+  summarize(sum_usage = sum(usage,na.rm=T))
+```
+
+##Mean by hour using pipes
+```{r}
+generation %>% 
+  select(datetime, contains("hydro"), starts_with("bio")) %>% 
+  melt(id.vars="datetime", variable.name="source", value.name="usage") %>% 
+  group_by(source) %>% 
+  summarize(mean_usage = mean(usage,na.rm=T))
+```
+
