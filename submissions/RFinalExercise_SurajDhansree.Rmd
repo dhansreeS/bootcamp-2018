@@ -9,14 +9,14 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-##Loading data
+##1. Loading data
 ```{r}
 schools <- read.csv(here::here("data","nys_schools.csv"), stringsAsFactors = F)
 acs <- read.csv(here::here("data","nys_acs.csv"), stringsAsFactors = F)
 
 ```
 
-##Exploring data
+##2. Exploring data
 ```{r}
 str(schools)
 str(acs)
@@ -25,13 +25,14 @@ summary(schools)
 summary(acs)
 ```
 
-##Dealing with -99 values
+##3. Recoding and variable manipulation
+##i. Dealing with -99 values
 ```{r}
 schools[schools==-99 | schools=="-99"] <- NA
 library(dplyr)
 ```
 
-##Creating a categorical variable for poverty in counties
+##ii. Creating a categorical variable for poverty in counties
 County_per_poverty values below 0.1 (which is the 25th percentile) have been coded as "Low".
 County_per_poverty values above 0.15 (which is the 75th percentile) have been coded as "High".
 The remaining values have been coded as "Medium".
@@ -45,7 +46,7 @@ acs$poverty_category[is.na(acs$poverty_category)] <- "Medium"
 unique(acs$poverty_category)
 ```
 
-##Scaling scores for math and english
+##iii. Scaling scores for math and english
 ```{r}
 schools <- (schools %>% 
   group_by(year) %>% 
@@ -53,19 +54,87 @@ schools <- (schools %>%
 
 ```
 
-##Merging the datasets
+##4. Merging the datasets
 ```{r}
 acs_schools <- acs %>% 
   merge(schools, by.x=c("county_name","year"), by.y=c("county_name","year"), all.x=T, all.y=T)
 ```
 
-##Creating Summary tables
+##5. Creating Summary tables
+##i. For each county: total enrollment, percent of students qualifying for free or reduced price lunch, and percent of population in poverty.
 ```{r}
-aggregate(cbind(total_enroll, per_free_lunch, per_reduced_lunch, county_per_poverty) ~ county_name, FUN=mean, na.action = na.omit, data=acs_schools)
-
 acs_schools %>% 
-  
+  select(county_name,county_per_poverty,per_reduced_lunch,per_free_lunch,total_enroll) %>% 
+  mutate(reduced_free_lunch = per_free_lunch + per_reduced_lunch) %>% 
+  group_by(county_name) %>% 
+  summarize(mean_county_per_poverty = mean(county_per_poverty,na.rm=T),
+            mean_reduced_free_lunch = mean(reduced_free_lunch,na.rm=T),
+            mean_total_enroll = mean(total_enroll,na.rm=T))
+```
 
-#aggregate(cbind(county_per_poverty, per_free_lunch, per_reduced_lunch, scaled_ela, scaled_math) ~ county_name, FUN=mean, na.action = na.omit, data=subset(acs_schools,order(county_per_poverty) %in% head(sort(order(acs_schools$county_per_poverty,na.last = NA)),n=5) | order(county_per_poverty) %in% tail(sort(order(acs_schools$county_per_poverty,na.last = NA)),n=5)))
+##ii. Bottom 5 poverty rate counties
+```{r}
+head(acs_schools %>% 
+  select(county_name,county_per_poverty,per_reduced_lunch,per_free_lunch,scaled_ela,scaled_math) %>% 
+  mutate(reduced_free_lunch = per_free_lunch + per_reduced_lunch) %>% 
+  group_by(county_name) %>% 
+  summarize(mean_county_per_poverty = mean(county_per_poverty,na.rm=T),
+            mean_reduced_free_lunch = mean(reduced_free_lunch,na.rm=T),
+            mean_scaled_ela = mean(scaled_ela,na.rm=T),
+            mean_scaled_math = mean(scaled_math,na.rm=T)) %>% 
+  arrange(mean_county_per_poverty), n=5)
+```
+
+##iii. Top 5 poverty rate counties
+```{r}
+tail(acs_schools %>% 
+  select(county_name,county_per_poverty, per_reduced_lunch, per_free_lunch, scaled_ela,scaled_math) %>% 
+  mutate(reduced_free_lunch = per_free_lunch + per_reduced_lunch) %>% 
+  group_by(county_name) %>% 
+  summarize(mean_county_per_poverty = mean(county_per_poverty,na.rm=T),
+            mean_reduced_free_lunch = mean(reduced_free_lunch,na.rm=T),
+            mean_scaled_ela = mean(scaled_ela,na.rm=T),
+            mean_scaled_math = mean(scaled_math,na.rm=T)) %>% 
+  filter(!is.na(county_name)) %>% 
+  arrange(mean_county_per_poverty), n=5)
+```
+
+##6. Visualizing data
+##i. The relationship between access to free/reduced price lunch and test performance, at the school level
+```{r}
+acs_schools %>% 
+  mutate(reduced_free_lunch=per_free_lunch+per_reduced_lunch,scaled_scores=(scaled_ela+scaled_math)/2) %>%
+  select(school_cd,school_name, reduced_free_lunch, scaled_scores) %>% 
+  group_by(school_cd, school_name) %>%
+  summarize (mean_reduced_free_lunch=mean(reduced_free_lunch, na.rm=T), mean_scaled_scores = mean(scaled_scores,na.rm=T)) %>% 
+  filter(!is.na(mean_reduced_free_lunch) & !is.na(mean_scaled_scores)) %>% 
+  ggplot() +
+  geom_point(aes(x=mean_reduced_free_lunch, y=mean_scaled_scores)) +
+  labs(title="Relationship between access to free/reduced price lunch and performance score",
+       x="% with access to free or reduced price lunch*",
+       y="Scaled Math and English scores",
+       subtitle = "Calculated at school level",
+       caption = "*Calculated by adding % with access to free and % with access to reduced price lunches")
+
+```
+
+##ii. Average test performance across counties with high, low, and medium poverty.
+```{r}
+acs_schools$poverty_category <- factor(acs_schools$poverty_category, levels = c("Low","Medium","High"))
+acs_schools %>% 
+  mutate(scaled_scores=(scaled_ela+scaled_math)/2) %>%
+  select(county_name,poverty_category,scaled_scores) %>% 
+  group_by(county_name, poverty_category) %>%
+  summarize (mean_scaled_scores = mean(scaled_scores,na.rm=T)) %>% 
+  filter(!is.na(mean_scaled_scores) & !is.na(poverty_category)) %>% 
+  ggplot() +
+  geom_col(aes(x=county_name, y=mean_scaled_scores, group=poverty_category, fill=poverty_category)) +
+  theme_minimal()+
+  theme(axis.text.y = element_text(size=6), legend.position="bottom", text = element_text(size=10)) +
+  labs(title="Average test performance across counties with high, low and medium poverty",
+       x="County Name",
+       y="Scaled Math and English scores") + 
+  scale_fill_brewer(palette="Greens", name="Poverty Category") +
+  coord_flip()
 ```
 
